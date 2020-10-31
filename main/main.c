@@ -7,23 +7,15 @@
    CONDITIONS OF ANY KIND, either express or implied.
 */
 
-#include <esp_wifi.h>
-#include <esp_event.h>
 #include <esp_log.h>
-#include <esp_system.h>
 #include <nvs_flash.h>
-#include <sys/param.h>
-#include "nvs_flash.h"
-#include "esp_netif.h"
-#include "esp_eth.h"
-
-#include <esp_http_server.h>
 
 const char *TAG = "webkey";
 
 /* Forware declaration */
 void wifi_init_sta(void);
 void server_init(void);
+void usb_init(void);
 
 /* Main application */
 void app_main(void)
@@ -42,4 +34,7 @@ void app_main(void)
 
     // Start webserver
     server_init();
+
+    // Start USB
+    usb_init();
 }
