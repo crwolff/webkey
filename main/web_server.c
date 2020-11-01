@@ -21,71 +21,72 @@
 
 extern const char *TAG;
 
-static const char homepage[] =
-			"<!DOCTYPE html>\n"
-			"<html>\n"
-			"<head>\n"
-			"<style>\n"
-			".button {\n"
-			"  border: none;\n"
-			"  color: white;\n"
-			"  padding: 16px 32px;\n"
-			"  text-align: center;\n"
-			"  text-decoration: none;\n"
-			"  display: inline-block;\n"
-			"  font-size: 16px;\n"
-			"  margin: 4px 2px;\n"
-			"  transition-duration: 0.4s;\n"
-			"  cursor: pointer;\n"
-			"}\n"
-			".button1 {\n"
-			"  background-color: white; \n"
-			"  color: black; \n"
-			"  border: 2px solid #4CAF50;\n"
-			"}\n"
-			".button1:hover {\n"
-			"  background-color: #4CAF50;\n"
-			"  color: white;\n"
-			"}\n"
-			".button2 {\n"
-			"  background-color: white; \n"
-			"  color: black; \n"
-			"  border: 2px solid #008CBA;\n"
-			"}\n"
-			".button2:hover {\n"
-			"  background-color: #008CBA;\n"
-			"  color: white;\n"
-			"}\n"
-			"</style>\n"
-			"</head>\n"
-			"<body>\n"
-			"<h1>Select boot sequence</h1>\n"
-			"<button class=\"button button1\">Windows</button>\n"
-			"<button class=\"button button2\">Linux</button>\n"
-			"</body>\n"
-			"</html>\n";
-
-/* Our URI handler function to be called during GET /uri request */
-static esp_err_t get_handler(httpd_req_t *req)
+/* Handler to respond with home page */
+static esp_err_t index_html_get_handler(httpd_req_t *req)
 {
-    httpd_resp_send(req, homepage, HTTPD_RESP_USE_STRLEN);
+    extern const unsigned char index_html_start[] asm("_binary_index_html_start");
+    extern const unsigned char index_html_end[]   asm("_binary_index_html_end");
+    const size_t index_html_size = (index_html_end - index_html_start);
+    httpd_resp_send(req, (const char *)index_html_start, index_html_size);
     return ESP_OK;
 }
 
-/* URI handler structure for GET /uri */
+/* Handler to redirect incoming GET request for / to /index.html
+ * This can be overridden by uploading file with same name */
+static esp_err_t root_get_handler(httpd_req_t *req)
+{
+    httpd_resp_set_status(req, "307 Temporary Redirect");
+    httpd_resp_set_hdr(req, "Location", "/index.html");
+    httpd_resp_send(req, NULL, 0);  // Response body can be empty
+    return ESP_OK;
+}
+
+/* Handler to respond with an icon file embedded in flash.
+ * Browsers expect to GET website icon at URI /favicon.ico.
+ * This can be overridden by uploading file with same name */
+static esp_err_t favicon_get_handler(httpd_req_t *req)
+{
+    extern const unsigned char favicon_ico_start[] asm("_binary_favicon_ico_start");
+    extern const unsigned char favicon_ico_end[]   asm("_binary_favicon_ico_end");
+    const size_t favicon_ico_size = (favicon_ico_end - favicon_ico_start);
+    httpd_resp_set_type(req, "image/x-icon");
+    httpd_resp_send(req, (const char *)favicon_ico_start, favicon_ico_size);
+    return ESP_OK;
+}
+
+/* Handler to respond to wildcard URI and direct the reponse */
+static esp_err_t get_handler(httpd_req_t *req)
+{
+    /* Return one of a limited number of supported paths */
+    if (strcmp(req->uri, "/") == 0) {
+        return root_get_handler(req);
+    } else if (strcmp(req->uri, "/index.html") == 0) {
+        return index_html_get_handler(req);
+    } else if (strcmp(req->uri, "/favicon.ico") == 0) {
+        return favicon_get_handler(req);
+    }
+
+    /* Respond with 404 Not Found */
+    httpd_resp_send_err(req, HTTPD_404_NOT_FOUND, "File does not exist");
+    return ESP_FAIL;
+}
+
+/* URI handler structure for GET */
 static httpd_uri_t uri_get = {
-    .uri      = "/",
+    .uri      = "/*",
     .method   = HTTP_GET,
     .handler  = get_handler,
     .user_ctx = NULL
 };
 
+/* Start up the webserver */
 static httpd_handle_t start_webserver(void)
 {
     httpd_handle_t server = NULL;
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
 
     // Start the httpd server
+    config.uri_match_fn = httpd_uri_match_wildcard;
     ESP_LOGI(TAG, "Starting server on port: '%d'", config.server_port);
     if (httpd_start(&server, &config) == ESP_OK) {
         // Set URI handlers

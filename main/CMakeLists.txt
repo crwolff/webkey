@@ -1,5 +1,7 @@
 idf_component_register(SRCS "main.c" "wifi_init_sta.c" "web_server.c" "usb_init.c" "usb_descriptors.c"
-                    INCLUDE_DIRS ".")
+                    INCLUDE_DIRS "."
+                    EMBED_FILES "www-data/favicon.ico" "www-data/index.html"
+)
 
 target_compile_options(${COMPONENT_TARGET} PUBLIC
   "-DCFG_TUSB_MCU=OPT_MCU_ESP32S2"
