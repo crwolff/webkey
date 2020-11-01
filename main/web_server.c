@@ -79,6 +79,44 @@ static httpd_uri_t uri_get = {
     .user_ctx = NULL
 };
 
+/* Handler for POST action */
+static esp_err_t post_handler(httpd_req_t *req)
+{
+    char buf[100];
+    int ret, remaining = req->content_len;
+
+    while (remaining > 0) {
+        /* Read the data for the request */
+        if ((ret = httpd_req_recv(req, buf,
+                        MIN(remaining, sizeof(buf)))) <= 0) {
+            if (ret == HTTPD_SOCK_ERR_TIMEOUT) {
+                /* Retry receiving if timeout occurred */
+                continue;
+            }
+            return ESP_FAIL;
+        }
+
+        /* Send back the same data */
+        remaining -= ret;
+
+        /* Log data received */
+        ESP_LOGI(TAG, "=========== RECEIVED DATA ==========");
+        ESP_LOGI(TAG, "%.*s", ret, buf);
+        ESP_LOGI(TAG, "====================================");
+    }
+
+    // Send response
+    httpd_resp_send(req, req->uri, HTTPD_RESP_USE_STRLEN);
+    return ESP_OK;
+}
+
+static const httpd_uri_t uri_post = {
+    .uri       = "/",
+    .method    = HTTP_POST,
+    .handler   = post_handler,
+    .user_ctx  = NULL
+};
+
 /* Start up the webserver */
 static httpd_handle_t start_webserver(void)
 {
@@ -92,6 +130,7 @@ static httpd_handle_t start_webserver(void)
         // Set URI handlers
         ESP_LOGI(TAG, "Registering URI handlers");
         httpd_register_uri_handler(server, &uri_get);
+        httpd_register_uri_handler(server, &uri_post);
         return server;
     }
 
