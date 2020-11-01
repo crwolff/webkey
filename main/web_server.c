@@ -80,12 +80,15 @@ static httpd_uri_t uri_get = {
 };
 
 /* Handler for POST action */
+extern uint32_t button_pressed;
+extern uint32_t debug_step;
 static esp_err_t post_handler(httpd_req_t *req)
 {
     char buf[100];
+    char *resp;
     int ret, remaining = req->content_len;
 
-    ESP_LOGI(TAG, "POST: %s", req->uri);
+    // Read any posted data
     while (remaining > 0) {
         /* Read the data for the request */
         if ((ret = httpd_req_recv(req, buf,
@@ -104,8 +107,25 @@ static esp_err_t post_handler(httpd_req_t *req)
         ESP_LOGI(TAG, "====================================");
     }
 
+    // Trigger the USB task
+    if ( button_pressed == 0 ) {
+        ESP_LOGI(TAG, "POST: %s", req->uri);
+        if (strcmp(req->uri, "/ctrl?key=b1") == 0) {
+            button_pressed = 1;
+            resp = "Okay\n";
+        } else if (strcmp(req->uri, "/ctrl?key=b2") == 0) {
+            button_pressed = 2;
+            resp = "Okay\n";
+        } else {
+            resp = "Not okay\n";
+        }
+    } else {
+        resp = "Busy\n";
+        ESP_LOGI(TAG, "BUSY: %08x", debug_step);
+    }
+
     // Send response
-    httpd_resp_send(req, "Okay\n", HTTPD_RESP_USE_STRLEN);
+    httpd_resp_send(req, resp, HTTPD_RESP_USE_STRLEN);
     return ESP_OK;
 }
 

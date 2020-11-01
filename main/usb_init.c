@@ -38,6 +38,14 @@
 
 #include "usb_descriptors.h"
 
+#include "esp_rom_gpio.h"
+#include "hal/gpio_ll.h"
+#include "hal/usb_hal.h"
+#include "soc/usb_periph.h"
+
+#include "driver/periph_ctrl.h"
+#include "driver/rmt.h"
+
 //--------------------------------------------------------------------+
 // MACRO CONSTANT TYPEDEF PROTYPES
 //--------------------------------------------------------------------+
@@ -55,13 +63,49 @@ StaticTask_t hid_taskdef;
 void usb_device_task(void* param);
 void hid_task(void* params);
 
+extern const char *TAG;
+
 //--------------------------------------------------------------------+
 // Main
 //--------------------------------------------------------------------+
 
+static void configure_pins(usb_hal_context_t *usb)
+{
+  /* usb_periph_iopins currently configures USB_OTG as USB Device.
+   * Introduce additional parameters in usb_hal_context_t when adding support
+   * for USB Host.
+   */
+  for (const usb_iopin_dsc_t *iopin = usb_periph_iopins; iopin->pin != -1; ++iopin) {
+    if ((usb->use_external_phy) || (iopin->ext_phy_only == 0)) {
+      esp_rom_gpio_pad_select_gpio(iopin->pin);
+      if (iopin->is_output) {
+        esp_rom_gpio_connect_out_signal(iopin->pin, iopin->func, false, false);
+      } else {
+        esp_rom_gpio_connect_in_signal(iopin->pin, iopin->func, false);
+        if ((iopin->pin != GPIO_FUNC_IN_LOW) && (iopin->pin != GPIO_FUNC_IN_HIGH)) {
+          gpio_ll_input_enable(&GPIO, iopin->pin);
+        }
+      }
+      esp_rom_gpio_pad_unhold(iopin->pin);
+    }
+  }
+  if (!usb->use_external_phy) {
+    gpio_set_drive_capability(USBPHY_DM_NUM, GPIO_DRIVE_CAP_3);
+    gpio_set_drive_capability(USBPHY_DP_NUM, GPIO_DRIVE_CAP_3);
+  }
+}
+
 void usb_init(void)
 {
-//  board_init();
+  // USB Controller Hal init
+  periph_module_reset(PERIPH_USB_MODULE);
+  periph_module_enable(PERIPH_USB_MODULE);
+
+  usb_hal_context_t hal = {
+    .use_external_phy = false // use built-in PHY
+  };
+  usb_hal_init(&hal);
+  configure_pins(&hal);
 
   // Create a task for tinyusb device stack
   (void) xTaskCreateStatic( usb_device_task, "usbd", USBD_STACK_SIZE, NULL, configMAX_PRIORITIES-1, usb_device_stack, &usb_device_taskdef);
@@ -91,64 +135,69 @@ void usb_device_task(void* param)
 //--------------------------------------------------------------------+
 // USB HID
 //--------------------------------------------------------------------+
+uint32_t button_pressed = 0;
+uint32_t debug_step = 0;
 
 void hid_task(void* param)
 {
+  uint8_t sequence;
+  uint8_t key_active;
   (void) param;
 
   while(1)
   {
-    // Poll every 10ms
-    vTaskDelay(pdMS_TO_TICKS(10));
+    // Poll every 100ms
+    vTaskDelay(pdMS_TO_TICKS(100));
 
-    // TODO: Do something(s) in response to POST on webpage
-    uint32_t const btn = 0; // board_button_read();
+    // Wait for command from web
+    if ( button_pressed ) {
+        // Record command so user can't change it mid-stream
+        uint32_t const btn = button_pressed;
 
-    // Remote wakeup
-    if ( tud_suspended() && btn )
-    {
-      // Wake up host if we are in suspend mode
-      // and REMOTE_WAKEUP feature is enabled by host
-      tud_remote_wakeup();
-    }
+        // Send key sequence 15xF8,(if b2) 2xDWN,1xENTER
+        sequence = 33;
+        key_active = 0;
+        debug_step = 0;
+        for(int i=0;(i < 1000) && (sequence != 0);i++) {
+            if ( tud_suspended() ) {
+                // Wake up host if we are in suspend mode
+                // and REMOTE_WAKEUP feature is enabled by host
+                tud_remote_wakeup();
+                debug_step += 0x01;
+            }
+            if ( tud_hid_boot_mode() ) {
+                debug_step += 0x1000000;
+            }
 
-#ifdef NEVER
-    /*------------- Mouse -------------*/
-    if ( tud_hid_ready() )
-    {
-      if ( btn )
-      {
-        int8_t const delta = 5;
+            // Send next keypress in sequence
+            if ( tud_hid_ready() ) {
+                if ( key_active == 0 ) {
+                    uint8_t keycode[6] = { 0 };
+                    if ( sequence == 1 ) {
+                        keycode[0] = HID_KEY_RETURN;
+                    } else if (( btn == 2 ) && (( sequence == 2 ) || ( sequence == 3 ))) {
+                        keycode[0] = HID_KEY_ARROW_DOWN;
+                    } else {
+                        keycode[0] = HID_KEY_F8;
+                    }
+                    tud_hid_keyboard_report(REPORT_ID_KEYBOARD, 0, keycode);
+                    vTaskDelay(pdMS_TO_TICKS(10));
+                    key_active = 1;
+                    debug_step += 0x0100;
+                } else {
+                    tud_hid_keyboard_report(REPORT_ID_KEYBOARD, 0, NULL);
+                    vTaskDelay(pdMS_TO_TICKS(500));
+                    sequence = sequence - 1;
+                    key_active = 0;
+                    debug_step += 0x010000;
+                }
+            } else {
+                vTaskDelay(pdMS_TO_TICKS(500));
+            }
+        }
 
-        // no button, right + down, no scroll pan
-        tud_hid_mouse_report(REPORT_ID_MOUSE, 0x00, delta, delta, 0, 0);
-
-        // delay a bit before attempt to send keyboard report
-        vTaskDelay(pdMS_TO_TICKS(10));
-      }
-    }
-#endif
-
-    /*------------- Keyboard -------------*/
-    if ( tud_hid_ready() )
-    {
-      // use to avoid send multiple consecutive zero report for keyboard
-      static bool has_key = false;
-
-      if ( btn )
-      {
-        uint8_t keycode[6] = { 0 };
-        keycode[0] = HID_KEY_A;
-
-        tud_hid_keyboard_report(REPORT_ID_KEYBOARD, 0, keycode);
-
-        has_key = true;
-      }else
-      {
-        // send empty key report if previously has key pressed
-        if (has_key) tud_hid_keyboard_report(REPORT_ID_KEYBOARD, 0, NULL);
-        has_key = false;
-      }
+        // Clear command and discard any that occurred during execution
+        button_pressed = 0;
     }
   }
 }
