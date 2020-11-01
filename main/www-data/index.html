@@ -49,7 +49,7 @@
   function clicky(name) {
     var form = document.createElement('form');
     form.setAttribute('method', 'post');
-    form.setAttribute('action', 'http://webkey/?key='+name);
+    form.setAttribute('action', 'http://webkey/ctrl?key='+name);
     form.style.display = 'hidden';
     document.body.appendChild(form)
     form.submit();

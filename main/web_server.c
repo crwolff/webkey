@@ -85,6 +85,7 @@ static esp_err_t post_handler(httpd_req_t *req)
     char buf[100];
     int ret, remaining = req->content_len;
 
+    ESP_LOGI(TAG, "POST: %s", req->uri);
     while (remaining > 0) {
         /* Read the data for the request */
         if ((ret = httpd_req_recv(req, buf,
@@ -95,8 +96,6 @@ static esp_err_t post_handler(httpd_req_t *req)
             }
             return ESP_FAIL;
         }
-
-        /* Send back the same data */
         remaining -= ret;
 
         /* Log data received */
@@ -106,12 +105,12 @@ static esp_err_t post_handler(httpd_req_t *req)
     }
 
     // Send response
-    httpd_resp_send(req, req->uri, HTTPD_RESP_USE_STRLEN);
+    httpd_resp_send(req, "Okay\n", HTTPD_RESP_USE_STRLEN);
     return ESP_OK;
 }
 
 static const httpd_uri_t uri_post = {
-    .uri       = "/",
+    .uri       = "/ctrl",
     .method    = HTTP_POST,
     .handler   = post_handler,
     .user_ctx  = NULL
