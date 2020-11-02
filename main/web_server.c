@@ -115,8 +115,14 @@ static esp_err_t post_handler(httpd_req_t *req)
         } else if (strcmp(req->uri, "/ctrl?key=b2") == 0) {
             button_pressed = 2;
             resp = "Okay\n";
+        } else if (strcmp(req->uri, "/ctrl?key=b3") == 0) {
+            button_pressed = 3;
+            resp = "Okay\n";
+        } else if (strcmp(req->uri, "/ctrl?key=b4") == 0) {
+            button_pressed = 4;
+            resp = "Okay\n";
         } else {
-            resp = "Not okay\n";
+            resp = "Bad Selection\n";
         }
     } else {
         resp = "Busy\n";

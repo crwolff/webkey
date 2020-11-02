@@ -15,25 +15,14 @@
   cursor: pointer;
 }
 
-.button1 {
+.buttonc {
   background-color: white; 
   color: black; 
   border: 2px solid #4CAF50;
 }
 
-.button1:hover {
+.buttonc:hover {
   background-color: #4CAF50;
-  color: white;
-}
-
-.button2 {
-  background-color: white; 
-  color: black; 
-  border: 2px solid #008CBA;
-}
-
-.button2:hover {
-  background-color: #008CBA;
   color: white;
 }
 
@@ -42,8 +31,10 @@
 <body>
 
 <h1>Select boot sequence</h1>
-<button class="button button1" onclick="clicky('b1');">Windows</button>
-<button class="button button2" onclick="clicky('b2');">Linux</button>
+<button class="button buttonc" onclick="clicky('b1');">Windows</button>
+<button class="button buttonc" onclick="clicky('b2');">Network</button>
+<button class="button buttonc" onclick="clicky('b3');">Linux</button>
+<button class="button buttonc" onclick="clicky('b3');">Setup</button>
 
 <script>
   function clicky(name) {

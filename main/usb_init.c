@@ -171,7 +171,7 @@ void hid_task(void* param)
                     uint8_t keycode[6] = { 0 };
                     if ( sequence == 1 ) {
                         keycode[0] = HID_KEY_RETURN;
-                    } else if (( btn == 2 ) && (( sequence == 2 ) || ( sequence == 3 ))) {
+                    } else if ( sequence <= btn ) {
                         keycode[0] = HID_KEY_ARROW_DOWN;
                     } else {
                         keycode[0] = HID_KEY_F8;
