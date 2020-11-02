@@ -81,7 +81,6 @@ static httpd_uri_t uri_get = {
 
 /* Handler for POST action */
 extern uint32_t button_pressed;
-extern uint32_t debug_step;
 static esp_err_t post_handler(httpd_req_t *req)
 {
     char buf[100];
@@ -121,7 +120,6 @@ static esp_err_t post_handler(httpd_req_t *req)
         }
     } else {
         resp = "Busy\n";
-        ESP_LOGI(TAG, "BUSY: %08x", debug_step);
     }
 
     // Send response

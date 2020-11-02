@@ -136,7 +136,6 @@ void usb_device_task(void* param)
 // USB HID
 //--------------------------------------------------------------------+
 uint32_t button_pressed = 0;
-uint32_t debug_step = 0;
 
 void hid_task(void* param)
 {
@@ -157,16 +156,13 @@ void hid_task(void* param)
         // Send key sequence 15xF8,(if b2) 2xDWN,1xENTER
         sequence = 33;
         key_active = 0;
-        debug_step = 0;
         for(int i=0;(i < 1000) && (sequence != 0);i++) {
             if ( tud_suspended() ) {
                 // Wake up host if we are in suspend mode
                 // and REMOTE_WAKEUP feature is enabled by host
                 tud_remote_wakeup();
-                debug_step += 0x01;
             }
             if ( tud_hid_boot_mode() ) {
-                debug_step += 0x1000000;
             }
 
             // Send next keypress in sequence
@@ -181,18 +177,16 @@ void hid_task(void* param)
                         keycode[0] = HID_KEY_F8;
                     }
                     tud_hid_keyboard_report(REPORT_ID_KEYBOARD, 0, keycode);
-                    vTaskDelay(pdMS_TO_TICKS(10));
                     key_active = 1;
-                    debug_step += 0x0100;
+                    vTaskDelay(pdMS_TO_TICKS(10));
                 } else {
                     tud_hid_keyboard_report(REPORT_ID_KEYBOARD, 0, NULL);
-                    vTaskDelay(pdMS_TO_TICKS(500));
                     sequence = sequence - 1;
                     key_active = 0;
-                    debug_step += 0x010000;
+                    vTaskDelay(pdMS_TO_TICKS(500));
                 }
             } else {
-                vTaskDelay(pdMS_TO_TICKS(500));
+                vTaskDelay(pdMS_TO_TICKS(10));
             }
         }
 
