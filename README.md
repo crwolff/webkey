@@ -38,10 +38,10 @@ openocd -f board/esp32s2-saola-1.cfg -c"program_esp build/webkey.bin 0x10000 ver
 ## Operation
 To use programatically:
 ```
-curl -X POST http://webkey/ctrl?key=b0
 curl -X POST http://webkey/ctrl?key=b1
 curl -X POST http://webkey/ctrl?key=b2
 curl -X POST http://webkey/ctrl?key=b3
+curl -X POST http://webkey/ctrl?key=b4
 ```
 
 There is also a lovely web page at http://webkey/index.html that provides pushbuttons.
