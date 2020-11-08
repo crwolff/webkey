@@ -5,6 +5,7 @@ The key sequence set in response to a POST command is deliberately limited to a 
 
 The code could be extended to allow more control over the key sequence being sent, but this is a fairly severe security hole. A malicious user could then send any sequence of keystrokes to your computer.
 
+## Build instructions
 ```
 get_idf
 idf.py set-target esp32s2
@@ -13,6 +14,28 @@ idf.py build
 idf.py -p /dev/ttyUSB0 flash monitor
 ```
 
+## JTAG wiring
+| Wire Color | Saola Pin    | WROOM Name | JTAG             | JTAG  | JTAG           | WROOM Name | Saola Pin     | Wire Color |
+|:----------:|:------------:|:----------:|:----------------:|:-----:|:--------------:|:----------:|:-------------:|:----------:|
+| Orange     | J2&#x2011;1  | 3.3V       | 1&#x2011;VtRef   |       | 2&#x2011;NC    |            |               |            |
+|            |              |            | 3&#x2011;nTRST   |       | 4&#x2011;GND   |            |               |            |
+| Yellow     | J3&#x2011;8  | IO41       | 5&#x2011;TDI     |       | 6&#x2011;GND   |            |               |            |
+| Green      | J3&#x2011;7  | IO42       | 7&#x2011;TMS     |       | 8&#x2011;GND   |            |               |            |
+| Blue       | J3&#x2011;10 | IO39       | 9&#x2011;TCK     | <-key | 10&#x2011;GND  |            |               |            |
+|            |              |            | 11&#x2011;RTCK   | <-key | 13&#x2011;GND  |            |               |            |
+| Purple     | J3&#x2011;9  | IO40       | 13&#x2011;TDO    |       | 14&#x2011;GND  |            |               |            |
+| Grey       | J3&#x2011;2  | nRST       | 15&#x2011;RESET  |       | 16&#x2011;GND  |            |               |            |
+|            |              |            | 17&#x2011;DBGRQ  |       | 18&#x2011;GND  |            |               |            |
+| White      | J2&#x2011;20 | VDD        | 19&#x2011;VDD    |       | 20&#x2011;GND  | GND        | J2&#x2011;21  | Black      |
+
+## OpenOCD use
+Two iterations of init are required to power up the board prior to programming
+```
+2x openocd -f board/esp32s2-saola-1.cfg -c"init" -c"jlink targetpower on" -c "jtag init"
+openocd -f board/esp32s2-saola-1.cfg -c"program_esp build/webkey.bin 0x10000 verify exit"
+```
+
+## Operation
 To use programatically:
 ```
 curl -X POST http://webkey/ctrl?key=b0
