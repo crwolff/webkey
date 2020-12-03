@@ -31,8 +31,8 @@ idf.py -p /dev/ttyUSB0 flash monitor
 ## OpenOCD use
 Two iterations of init are required to power up the board prior to programming
 ```
-2x openocd -f board/esp32s2-saola-1.cfg -c"init" -c"jlink targetpower on" -c "jtag init"
-openocd -f board/esp32s2-saola-1.cfg -c"program_esp build/webkey.bin 0x10000 verify exit"
+openocd -f interface/jlink.cfg -f target/esp32s2.cfg -c"adapter_khz 1000; init; jlink targetpower on; exit"
+openocd -f interface/jlink.cfg -f target/esp32s2.cfg -c"adapter_khz 1000; init; reset halt; program_esp build/webkey.bin 0x10000 verify exit"
 ```
 
 ## Operation
