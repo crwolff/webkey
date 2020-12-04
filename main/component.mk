@@ -5,5 +5,5 @@
 
 COMPONENT_EMBED_FILES := www-data/favicon.ico
 COMPONENT_EMBED_FILES += www-data/index.html
-COMPONENT_EMBED_FILES += www-data/update.html
+COMPONENT_EMBED_FILES += www-data/config.html
 
