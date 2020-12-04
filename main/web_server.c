@@ -31,8 +31,7 @@ static esp_err_t index_html_get_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
-/* Handler to redirect incoming GET request for / to /index.html
- * This can be overridden by uploading file with same name */
+/* Handler to redirect incoming GET request for / to /index.html */
 static esp_err_t root_get_handler(httpd_req_t *req)
 {
     httpd_resp_set_status(req, "307 Temporary Redirect");
@@ -42,8 +41,7 @@ static esp_err_t root_get_handler(httpd_req_t *req)
 }
 
 /* Handler to respond with an icon file embedded in flash.
- * Browsers expect to GET website icon at URI /favicon.ico.
- * This can be overridden by uploading file with same name */
+ * Browsers expect to GET website icon at URI /favicon.ico. */
 static esp_err_t favicon_get_handler(httpd_req_t *req)
 {
     extern const unsigned char favicon_ico_start[] asm("_binary_favicon_ico_start");
@@ -54,13 +52,22 @@ static esp_err_t favicon_get_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
-/* Handler to respond with update page */
+/* Handler to respond with configuration page */
 static esp_err_t config_html_get_handler(httpd_req_t *req)
 {
     extern const unsigned char config_html_start[] asm("_binary_config_html_start");
     extern const unsigned char config_html_end[]   asm("_binary_config_html_end");
     const size_t config_html_size = (config_html_end - config_html_start);
     httpd_resp_send(req, (const char *)config_html_start, config_html_size);
+    return ESP_OK;
+}
+
+/* Handler to redirect incoming GET request for /config to /config.html */
+static esp_err_t config_get_handler(httpd_req_t *req)
+{
+    httpd_resp_set_status(req, "307 Temporary Redirect");
+    httpd_resp_set_hdr(req, "Location", "/config.html");
+    httpd_resp_send(req, NULL, 0);  // Response body can be empty
     return ESP_OK;
 }
 
@@ -76,6 +83,8 @@ static esp_err_t get_handler(httpd_req_t *req)
         return favicon_get_handler(req);
     } else if (strcmp(req->uri, "/config.html") == 0) {
         return config_html_get_handler(req);
+    } else if (strcmp(req->uri, "/config") == 0) {
+        return config_get_handler(req);
     }
 
     /* Respond with 404 Not Found */
@@ -91,12 +100,10 @@ static httpd_uri_t uri_get = {
     .user_ctx = NULL
 };
 
-/* Handler for POST action */
-extern uint32_t button_pressed;
-static esp_err_t post_handler(httpd_req_t *req)
+/* Flush posted data */
+static esp_err_t flush_post_data(httpd_req_t *req)
 {
     char buf[100];
-    char *resp;
     int ret, remaining = req->content_len;
 
     // Read any posted data
@@ -117,10 +124,21 @@ static esp_err_t post_handler(httpd_req_t *req)
         ESP_LOGI(TAG, "%.*s", ret, buf);
         ESP_LOGI(TAG, "====================================");
     }
+    return ESP_OK;
+}
+
+/* Handler for ctrl POST action */
+extern uint32_t button_pressed;
+static esp_err_t ctrl_post_handler(httpd_req_t *req)
+{
+    char *resp;
+
+    // Clean up any garbage
+    if (flush_post_data(req) != ESP_OK)
+        return ESP_FAIL;
 
     // Trigger the USB task
     if ( button_pressed == 0 ) {
-        ESP_LOGI(TAG, "POST: %s", req->uri);
         if (strcmp(req->uri, "/ctrl?key=b1") == 0) {
             button_pressed = 1;
             resp = "Okay\n";
@@ -145,8 +163,113 @@ static esp_err_t post_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
+/* Handler for config POST action */
+static esp_err_t config_post_handler(httpd_req_t *req)
+{
+    char buf[120]; // max=10+64 + 10+32 + 1
+    char *token;
+    int ret, remaining = req->content_len;
+
+    /* Open NVS */
+    nvs_handle_t nvsHandle;
+    esp_err_t err = nvs_open("storage", NVS_READWRITE, &nvsHandle);
+    if (err != ESP_OK) {
+        ESP_LOGI(TAG, "Error (%s) opening NVS handle!", esp_err_to_name(err));
+        flush_post_data(req);
+        return ESP_FAIL;
+    }
+
+    /* Read SSID/Password */
+    buf[0] = '\0';
+    while (remaining > 0) {
+        /* Read the data for the request */
+        if ((ret = httpd_req_recv(req, buf,
+                        MIN(remaining, sizeof(buf)-1))) <= 0) {
+            if (ret == HTTPD_SOCK_ERR_TIMEOUT) {
+                /* Retry receiving if timeout occurred */
+                continue;
+            }
+            return ESP_FAIL;
+        }
+        buf[ret] = '\0';
+        remaining -= ret;
+
+        /* Parse received data */
+        token = strtok(buf, "&");
+        while( token != NULL ) {
+            if ( strncmp( token, "wifi_ssid=", 10 ) == 0 ) {
+                token += 10;	// Skip key
+                if (( strlen(token) > 0 ) && ( strlen(token) <= 32 )) {
+                    err = nvs_set_str(nvsHandle, "WIFI_SSID", token);
+                    if ( err != ESP_OK ) {
+                        ESP_LOGI(TAG, "Error (%s) writing WiFi SSID to NVS", esp_err_to_name(err));
+                    }
+                }
+            }
+            else if ( strncmp( token, "wifi_pass=", 10 ) == 0 ) {
+                token += 10;	// Skip key
+                if (( strlen(token) > 0 ) && ( strlen(token) <= 64 )) {
+                    err = nvs_set_str(nvsHandle, "WIFI_PASS", token);
+                    if ( err != ESP_OK ) {
+                        ESP_LOGI(TAG, "Error (%s) writing WiFi SSID to NVS", esp_err_to_name(err));
+                    }
+                }
+            }
+            token = strtok(NULL, "&");
+        }
+    }
+
+    /* Close NVS */
+    err = nvs_commit(nvsHandle);
+    if ( err != ESP_OK ) {
+        ESP_LOGI(TAG, "Error (%s) commiting changes to NVS", esp_err_to_name(err));
+    }
+    nvs_close(nvsHandle);
+
+    // Send response
+    httpd_resp_send(req, "SSID/Password change will take effect on next reboot", HTTPD_RESP_USE_STRLEN);
+    return ESP_OK;
+}
+
+#ifdef NEVER
+    } else {
+        nvs_len = sizeof(wifi_ssid);
+        err = nvs_get_str(nvsHandle, "WIFI_SSID", wifi_ssid, &nvs_len);
+            strlcpy(wifi_ssid, CONFIG_ESP_WIFI_SSID, sizeof(wifi_ssid));
+        } else
+        nvs_len = sizeof(wifi_pass);
+        err = nvs_get_str(nvsHandle, "WIFI_PASS", wifi_pass, &nvs_len);
+        if ( err != ESP_OK ) {
+            ESP_LOGI(TAG, "WiFi password not set, using default");
+            strlcpy(wifi_pass, CONFIG_ESP_WIFI_PASSWORD, sizeof(wifi_pass));
+        }
+        nvs_close(nvsHandle);
+    }
+#endif
+
+/* Handler to respond to wildcard URI and direct the reponse */
+static esp_err_t post_handler(httpd_req_t *req)
+{
+    /* Return one of a limited number of supported paths */
+    ESP_LOGI(TAG, "POST: %s", req->uri);
+    if (strncmp(req->uri, "/ctrl?", 6) == 0) {
+        return ctrl_post_handler(req);
+    }
+    else if (strcmp(req->uri, "/config") == 0) {
+        return config_post_handler(req);
+    }
+
+    // Clean up any garbage
+    if (flush_post_data(req) != ESP_OK)
+        return ESP_FAIL;
+
+    /* Respond with 404 Not Found */
+    httpd_resp_send_err(req, HTTPD_404_NOT_FOUND, "File does not exist");
+    return ESP_FAIL;
+}
+
 static const httpd_uri_t uri_post = {
-    .uri       = "/ctrl",
+    .uri       = "/*",
     .method    = HTTP_POST,
     .handler   = post_handler,
     .user_ctx  = NULL

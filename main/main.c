@@ -7,30 +7,60 @@
    CONDITIONS OF ANY KIND, either express or implied.
 */
 
+#include <string.h>
 #include <esp_log.h>
 #include <nvs_flash.h>
 
 const char *TAG = "webkey";
 
 /* Forware declaration */
-void wifi_init_sta(void);
+void wifi_init_sta( const char *, const char * );
 void server_init(void);
 void usb_init(void);
 
 /* Main application */
 void app_main(void)
 {
-    //Initialize NVS
-    esp_err_t ret = nvs_flash_init();
-    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-      ESP_ERROR_CHECK(nvs_flash_erase());
-      ret = nvs_flash_init();
+    size_t nvs_len;
+    char wifi_ssid[33];
+    char wifi_pass[65];
+
+    // Initialize NVS subsystem
+    esp_err_t err = nvs_flash_init();
+    if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+        // NVS partition was truncated and needs to be erased
+        // Retry nvs_flash_init
+        ESP_ERROR_CHECK(nvs_flash_erase());
+        err = nvs_flash_init();
     }
-    ESP_ERROR_CHECK(ret);
+    ESP_ERROR_CHECK( err );
+
+    // Get SSID/password from NVS
+    nvs_handle_t nvsHandle;
+    err = nvs_open("storage", NVS_READWRITE, &nvsHandle);
+    if (err != ESP_OK) {
+        ESP_LOGI(TAG, "Error (%s) opening NVS handle!", esp_err_to_name(err));
+        strlcpy(wifi_ssid, CONFIG_ESP_WIFI_SSID, sizeof(wifi_ssid));
+        strlcpy(wifi_pass, CONFIG_ESP_WIFI_PASSWORD, sizeof(wifi_pass));
+    } else {
+        nvs_len = sizeof(wifi_ssid);
+        err = nvs_get_str(nvsHandle, "WIFI_SSID", wifi_ssid, &nvs_len);
+        if ( err != ESP_OK ) {
+            ESP_LOGI(TAG, "WiFi SSID not set, using default");
+            strlcpy(wifi_ssid, CONFIG_ESP_WIFI_SSID, sizeof(wifi_ssid));
+        } else
+        nvs_len = sizeof(wifi_pass);
+        err = nvs_get_str(nvsHandle, "WIFI_PASS", wifi_pass, &nvs_len);
+        if ( err != ESP_OK ) {
+            ESP_LOGI(TAG, "WiFi password not set, using default");
+            strlcpy(wifi_pass, CONFIG_ESP_WIFI_PASSWORD, sizeof(wifi_pass));
+        }
+        nvs_close(nvsHandle);
+    }
 
     // Start WiFi
     ESP_LOGI(TAG, "ESP_WIFI_MODE_STA");
-    wifi_init_sta();
+    wifi_init_sta( wifi_ssid, wifi_pass );
 
     // Start webserver
     server_init();

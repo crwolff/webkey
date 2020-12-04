@@ -54,7 +54,7 @@ static void event_handler(void* arg, esp_event_base_t event_base,
     }
 }
 
-void wifi_init_sta(void)
+void wifi_init_sta( const char *wifi_ssid, const char *wifi_pass )
 {
     s_wifi_event_group = xEventGroupCreate();
 
@@ -81,8 +81,6 @@ void wifi_init_sta(void)
 
     wifi_config_t wifi_config = {
         .sta = {
-            .ssid = CONFIG_ESP_WIFI_SSID,
-            .password = CONFIG_ESP_WIFI_PASSWORD,
             /* Setting a password implies station will connect to all security modes including WEP/WPA.
              * However these modes are deprecated and not advisable to be used. Incase your Access point
              * doesn't support WPA2, these mode can be enabled by commenting below line */
@@ -94,6 +92,21 @@ void wifi_init_sta(void)
             },
         },
     };
+
+    /* Using memcpy allows the max SSID length to be 32 bytes (as per 802.11 standard).
+     * But this doesn't guarantee that the saved SSID will be null terminated, because
+     * wifi_cfg->sta.ssid is also 32 bytes long (without extra 1 byte for null character).
+     * Although, this is not a matter for concern because esp_wifi library reads the SSID
+     * upto 32 bytes in absence of null termination */
+    const size_t ssid_len = strnlen(wifi_ssid, sizeof(wifi_config.sta.ssid));
+    /* Ensure SSID less than 32 bytes is null terminated */
+    memset(wifi_config.sta.ssid, 0, sizeof(wifi_config.sta.ssid));
+    memcpy(wifi_config.sta.ssid, wifi_ssid, ssid_len);
+
+    /* Using strlcpy allows both max passphrase length (63 bytes) and ensures null termination
+     * because size of wifi_config.sta.password is 64 bytes (1 extra byte for null character) */
+    strlcpy((char *) wifi_config.sta.password, wifi_pass, sizeof(wifi_config.sta.password));
+
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA) );
     ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_STA, &wifi_config) );
     ESP_ERROR_CHECK(esp_wifi_start() );
@@ -111,9 +124,9 @@ void wifi_init_sta(void)
     /* xEventGroupWaitBits() returns the bits before the call returned, hence we can test which event actually
      * happened. */
     if (bits & WIFI_CONNECTED_BIT) {
-        ESP_LOGI(TAG, "connected to ap SSID:%s", CONFIG_ESP_WIFI_SSID);
+        ESP_LOGI(TAG, "connected to ap SSID:%s", wifi_ssid );
     } else if (bits & WIFI_FAIL_BIT) {
-        ESP_LOGI(TAG, "Failed to connect to SSID:%s", CONFIG_ESP_WIFI_SSID);
+        ESP_LOGI(TAG, "Failed to connect to SSID:%s", wifi_ssid );
     } else {
         ESP_LOGE(TAG, "UNEXPECTED EVENT");
     }

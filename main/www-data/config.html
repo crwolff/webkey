@@ -2,18 +2,30 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8"/>
-    <title>Reprogram Firmware</title>
+    <title>Configuration</title>
   </head>
   <body>
+    <h1>SSID Setup</h1>
+    <form action="/config" method="post">
+      <label for="wifi_ssid">WiFi SSID:</label>
+      <input type="text" id="wifi_ssid" name="wifi_ssid" maxlength=32><br><br>
+      <label for="wifi_pass">WiFi Password:</label>
+      <input type="password" id="wifi_pass" name="wifi_pass" maxlength="63"><br><br>
+      <input type="submit" value="Submit">
+    </form>
+    <br><br><br>
+    <h1>Firmware Update</h1>
     <form id="form1" enctype="multipart/form-data" method="post" action="upload">
       <div class="row">
         <label for="fileToUpload">Select new firmware</label>
         <br />
         <input type="file" accept=".bin" name="fileToUpload" id="fileToUpload" onchange="fileSelected();" />
       </div>
+      <br>
       <div id="fileName"></div>
       <div id="fileSize"></div>
       <div id="fileType"></div>
+      <br>
       <div class="row">
         <input type="button" onclick="upload()" value="Update" />
       </div>
