@@ -54,6 +54,16 @@ static esp_err_t favicon_get_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
+/* Handler to respond with update page */
+static esp_err_t update_html_get_handler(httpd_req_t *req)
+{
+    extern const unsigned char update_html_start[] asm("_binary_update_html_start");
+    extern const unsigned char update_html_end[]   asm("_binary_update_html_end");
+    const size_t update_html_size = (update_html_end - update_html_start);
+    httpd_resp_send(req, (const char *)update_html_start, update_html_size);
+    return ESP_OK;
+}
+
 /* Handler to respond to wildcard URI and direct the reponse */
 static esp_err_t get_handler(httpd_req_t *req)
 {
@@ -64,6 +74,8 @@ static esp_err_t get_handler(httpd_req_t *req)
         return index_html_get_handler(req);
     } else if (strcmp(req->uri, "/favicon.ico") == 0) {
         return favicon_get_handler(req);
+    } else if (strcmp(req->uri, "/update.html") == 0) {
+        return update_html_get_handler(req);
     }
 
     /* Respond with 404 Not Found */

@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8"/>
+    <title>Reprogram Firmware</title>
+  </head>
+  <body>
+    <form id="form1" enctype="multipart/form-data" method="post" action="upload">
+      <div class="row">
+        <label for="fileToUpload">Select new firmware</label>
+        <br />
+        <input type="file" accept=".bin" name="fileToUpload" id="fileToUpload" onchange="fileSelected();" />
+      </div>
+      <div id="fileName"></div>
+      <div id="fileSize"></div>
+      <div id="fileType"></div>
+      <div class="row">
+        <input type="button" onclick="upload()" value="Update" />
+      </div>
+    </form>
+    <script>
+      function fileSelected() {
+         var file = document.getElementById('fileToUpload').files[0];
+         if (file) {
+            var fileSize = 0;
+            if (file.size > 1024 * 1024)
+              fileSize = (Math.round(file.size * 100 / (1024 * 1024)) / 100).toString() + 'MB';
+            else
+              fileSize = (Math.round(file.size * 100 / 1024) / 100).toString() + 'KB';
+            document.getElementById('fileName').innerHTML = 'Name: ' + file.name;
+            document.getElementById('fileSize').innerHTML = 'Size: ' + fileSize;
+            document.getElementById('fileType').innerHTML = 'Type: ' + file.type;
+         }
+      }
+      function upload() {
+         var file = document.getElementById("fileToUpload").files[0];
+      
+         /* Max size of an individual file. Make sure this
+          * value is same as that set in file_server.c */
+         var MAX_FILE_SIZE = 1024*1024;
+         var MAX_FILE_SIZE_STR = "1MB";
+      
+         if (file.length == 0) {
+            alert("No file selected!");
+         } else if (file.size > MAX_FILE_SIZE) {
+            alert("File too large!");
+         } else {
+            document.getElementById("fileToUpload").disabled = true;
+      
+            var xhttp = new XMLHttpRequest();
+            xhttp.onreadystatechange = function() {
+              if (xhttp.readyState == 4) {
+                 if (xhttp.status == 200) {
+                    document.open();
+                    document.write(xhttp.responseText);
+                    document.close();
+                 } else if (xhttp.status == 0) {
+                    alert("Server closed the connection abruptly!");
+                    location.reload()
+                 } else {
+                    alert(xhttp.status + " Error!\n" + xhttp.responseText);
+                    location.reload()
+                 }
+              }
+            };
+            xhttp.open("POST", "update", true);
+            xhttp.send(file);
+         }
+      }
+    </script>
+  </body>
+</html>
