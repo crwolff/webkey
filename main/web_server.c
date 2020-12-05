@@ -19,7 +19,12 @@
 
 #include <esp_http_server.h>
 
+/* Should put these in .h file(s) */
 extern const char *TAG;
+
+esp_err_t ota_init(void);
+esp_err_t ota_write(char *, int);
+esp_err_t ota_finish(esp_err_t);
 
 /* Handler to respond with home page */
 static esp_err_t index_html_get_handler(httpd_req_t *req)
@@ -231,21 +236,42 @@ static esp_err_t config_post_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
-#ifdef NEVER
-    } else {
-        nvs_len = sizeof(wifi_ssid);
-        err = nvs_get_str(nvsHandle, "WIFI_SSID", wifi_ssid, &nvs_len);
-            strlcpy(wifi_ssid, CONFIG_ESP_WIFI_SSID, sizeof(wifi_ssid));
-        } else
-        nvs_len = sizeof(wifi_pass);
-        err = nvs_get_str(nvsHandle, "WIFI_PASS", wifi_pass, &nvs_len);
-        if ( err != ESP_OK ) {
-            ESP_LOGI(TAG, "WiFi password not set, using default");
-            strlcpy(wifi_pass, CONFIG_ESP_WIFI_PASSWORD, sizeof(wifi_pass));
-        }
-        nvs_close(nvsHandle);
+/* Handler for update POST action */
+char bigbuf[4096];
+static esp_err_t update_post_handler(httpd_req_t *req)
+{
+    int ret, remaining = req->content_len;
+    esp_err_t err;
+
+    /* Start OTA process */
+    err = ota_init();
+    if ( err != ESP_OK ) {
+        flush_post_data(req);
+        return err;
     }
-#endif
+
+    // Read any posted data
+    while (remaining > 0) {
+        /* Read the data for the request */
+        if ((ret = httpd_req_recv(req, bigbuf,
+                        MIN(remaining, sizeof(bigbuf)))) <= 0) {
+            if (ret == HTTPD_SOCK_ERR_TIMEOUT) {
+                /* Retry receiving if timeout occurred */
+                continue;
+            }
+            return ota_finish( ESP_FAIL );
+        }
+        remaining -= ret;
+
+        err = ota_write( bigbuf, ret );
+        if ( err != ESP_OK ) {
+            flush_post_data(req);
+            return err;
+        }
+    }
+
+    return ota_finish( ESP_OK );
+}
 
 /* Handler to respond to wildcard URI and direct the reponse */
 static esp_err_t post_handler(httpd_req_t *req)
@@ -257,6 +283,9 @@ static esp_err_t post_handler(httpd_req_t *req)
     }
     else if (strcmp(req->uri, "/config") == 0) {
         return config_post_handler(req);
+    }
+    else if (strcmp(req->uri, "/update") == 0) {
+        return update_post_handler(req);
     }
 
     // Clean up any garbage

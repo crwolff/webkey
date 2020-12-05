@@ -1,4 +1,4 @@
-idf_component_register(SRCS "main.c" "wifi_init_sta.c" "web_server.c" "usb_init.c" "usb_descriptors.c"
+idf_component_register(SRCS "main.c" "wifi_init_sta.c" "web_server.c" "usb_init.c" "usb_descriptors.c" "ota.c"
                     INCLUDE_DIRS "."
                     EMBED_FILES "www-data/favicon.ico" "www-data/index.html" "www-data/config.html"
 )
