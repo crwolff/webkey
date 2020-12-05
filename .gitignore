@@ -30,3 +30,13 @@
 *.exe
 *.out
 *.app
+
+# Build directory
+build/
+
+# SDK configuration
+sdkconfig
+sdkconfig.old
+
+# Never ever secrets
+*.pem
