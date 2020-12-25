@@ -54,8 +54,16 @@ static void event_handler(void* arg, esp_event_base_t event_base,
     }
 }
 
-void wifi_init_sta( const char *wifi_ssid, const char *wifi_pass )
+void wifi_init_sta( int32_t reinit, const char *wifi_ssid, const char *wifi_pass )
 {
+    if ( reinit ) {
+	ESP_LOGI(TAG, "Disconnect WiFi");
+	ESP_ERROR_CHECK(esp_wifi_stop());
+	ESP_ERROR_CHECK(esp_wifi_deinit());
+        vTaskDelay(pdMS_TO_TICKS(10000));	// allow AP time to recognize disconnect
+	ESP_LOGI(TAG, "Re-initialize WiFi");
+    }
+
     s_wifi_event_group = xEventGroupCreate();
 
     ESP_ERROR_CHECK(esp_netif_init());

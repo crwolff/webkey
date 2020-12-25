@@ -7,14 +7,18 @@
    CONDITIONS OF ANY KIND, either express or implied.
 */
 
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include <string.h>
 #include <esp_log.h>
 #include <nvs_flash.h>
 
 const char *TAG = "webkey";
 
+extern int32_t web_server_down;
+
 /* Forware declaration */
-void wifi_init_sta( const char *, const char * );
+void wifi_init_sta( int32_t, const char *, const char * );
 void server_init(void);
 void usb_init(void);
 
@@ -60,11 +64,20 @@ void app_main(void)
 
     // Start WiFi
     ESP_LOGI(TAG, "ESP_WIFI_MODE_STA");
-    wifi_init_sta( wifi_ssid, wifi_pass );
+    wifi_init_sta( 0, wifi_ssid, wifi_pass );
 
     // Start webserver
     server_init();
 
     // Start USB
     usb_init();
+
+    // Watch for connection loss and try reconnect
+    while (1) {
+        vTaskDelay(pdMS_TO_TICKS(1000));
+        if ( web_server_down ) {
+            web_server_down = 0;
+            wifi_init_sta( 1, wifi_ssid, wifi_pass );
+        }
+    }
 }
