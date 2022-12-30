@@ -5,13 +5,28 @@ The key sequence set in response to a POST command is deliberately limited to a 
 
 The code could be extended to allow more control over the key sequence being sent, but this is a fairly severe security hole. A malicious user could then send any sequence of keystrokes to your computer.
 
-## Build instructions
+## Tool chain
 ```
-get_idf
+#rm -rf esp-idf ~/.espressif
+git clone -bv4.3 --recursive https://github.com/espressif/esp-idf.git
+cd esp-idf
+git reset --hard 178b122
+git submodule update --init --recursive
+bash ./install.sh
+```
+
+## Project configuration
+```
+source ../esp-idf/export.sh
 idf.py set-target esp32s2
 idf.py menuconfig
 -> Webkey Configuration -> SSID/Password
 -> Compont -> LWIP -> netif hostname
+```
+
+## Build instructions
+```
+source ../esp-idf/export.sh
 idf.py build
 idf.py -p /dev/ttyUSB0 erase_flash
 idf.py -p /dev/ttyUSB0 flash monitor
