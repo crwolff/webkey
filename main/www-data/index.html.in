@@ -38,7 +38,7 @@
 <button class="button buttonc" onclick="clicky('b3');">Linux</button>
 <button class="button buttonc" onclick="clicky('b3');">Setup</button>
 <br>
-<p><a href="https://www.github.com/crwolff/webkey">WebKey v1.2</a></p>
+<p><a href="https://www.github.com/crwolff/webkey">WebKey g${GIT_REV}${GIT_DIFF}</a></p>
 
 <script>
   function clicky(name) {

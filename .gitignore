@@ -40,3 +40,6 @@ sdkconfig.old
 
 # Never ever secrets
 *.pem
+
+# Ignore generated file
+index.html
