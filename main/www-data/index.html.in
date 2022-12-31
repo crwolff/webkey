@@ -34,11 +34,10 @@
 <br>
 <h1>Select boot sequence</h2>
 <button class="button buttonc" onclick="clicky('b1');">Windows</button>
-<button class="button buttonc" onclick="clicky('b2');">Network</button>
-<button class="button buttonc" onclick="clicky('b3');">Linux</button>
-<button class="button buttonc" onclick="clicky('b3');">Setup</button>
+<button class="button buttonc" onclick="clicky('b2');">Linux</button>
+<button class="button buttonc" onclick="clicky('b4');">Setup</button>
 <br>
-<p><a href="https://www.github.com/crwolff/webkey">WebKey g${GIT_REV}${GIT_DIFF}</a></p>
+<p><a href="https://www.github.com/crwolff/webkey">WebKey v1.3 (${GIT_REV}${GIT_DIFF})</a></p>
 
 <script>
   function clicky(name) {
