@@ -51,13 +51,13 @@
 //--------------------------------------------------------------------+
 
 // static task for usbd
-#define USBD_STACK_SIZE     (3*configMINIMAL_STACK_SIZE/2)
+#define USBD_STACK_SIZE     (2*configMINIMAL_STACK_SIZE)
 StackType_t  usb_device_stack[USBD_STACK_SIZE];
 StaticTask_t usb_device_taskdef;
 
 // static task for hid
-#define HID_STACK_SZIE      configMINIMAL_STACK_SIZE
-StackType_t  hid_stack[HID_STACK_SZIE];
+#define HID_STACK_SIZE      (2*configMINIMAL_STACK_SIZE)
+StackType_t  hid_stack[HID_STACK_SIZE];
 StaticTask_t hid_taskdef;
 
 void usb_device_task(void* param);
@@ -111,7 +111,7 @@ void usb_init(void)
   (void) xTaskCreateStatic( usb_device_task, "usbd", USBD_STACK_SIZE, NULL, configMAX_PRIORITIES-1, usb_device_stack, &usb_device_taskdef);
 
   // Create HID task
-  (void) xTaskCreateStatic( hid_task, "hid", HID_STACK_SZIE, NULL, configMAX_PRIORITIES-2, hid_stack, &hid_taskdef);
+  (void) xTaskCreateStatic( hid_task, "hid", HID_STACK_SIZE, NULL, configMAX_PRIORITIES-2, hid_stack, &hid_taskdef);
 }
 
 // USB Device Driver task
@@ -153,10 +153,13 @@ void hid_task(void* param)
         // Record command so user can't change it mid-stream
         uint32_t const btn = button_pressed;
 
-        // Send key sequence 20xSpace,(if b2) 2xDWN,1xENTER
-        sequence = 43;
+        // Send key sequence
+        //     30 spaces (halts grub autoboot)
+        //     n down arrows corresponding to button number
+        //     ENTER to start boot
+        sequence = 33;
         key_active = 0;
-        for(int i=0;(i < 1000) && (sequence != 0);i++) {
+        for(int i=0;(i < 6000) && (sequence != 0);i++) {
             if ( tud_suspended() ) {
                 // Wake up host if we are in suspend mode
                 // and REMOTE_WAKEUP feature is enabled by host
@@ -189,6 +192,8 @@ void hid_task(void* param)
                 vTaskDelay(pdMS_TO_TICKS(10));
             }
         }
+        if (sequence != 0)
+            printf("Timeout before sequence ended\n");
 
         // Clear command and discard any that occurred during execution
         button_pressed = 0;
