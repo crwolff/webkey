@@ -153,8 +153,8 @@ void hid_task(void* param)
         // Record command so user can't change it mid-stream
         uint32_t const btn = button_pressed;
 
-        // Send key sequence 15xF8,(if b2) 2xDWN,1xENTER
-        sequence = 33;
+        // Send key sequence 20xSpace,(if b2) 2xDWN,1xENTER
+        sequence = 43;
         key_active = 0;
         for(int i=0;(i < 1000) && (sequence != 0);i++) {
             if ( tud_suspended() ) {
@@ -174,7 +174,7 @@ void hid_task(void* param)
                     } else if ( sequence <= btn ) {
                         keycode[0] = HID_KEY_ARROW_DOWN;
                     } else {
-                        keycode[0] = HID_KEY_F8;
+                        keycode[0] = HID_KEY_SPACE;
                     }
                     tud_hid_keyboard_report(REPORT_ID_KEYBOARD, 0, keycode);
                     key_active = 1;
